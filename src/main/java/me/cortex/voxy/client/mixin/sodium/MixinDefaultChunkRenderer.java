@@ -49,8 +49,9 @@ public abstract class MixinDefaultChunkRenderer extends ShaderChunkRenderer {
             var renderer = ((IGetVoxyRenderSystem) Minecraft.getInstance().levelRenderer).voxy$getRenderSystem();
             if (renderer != null) {
                 Viewport<?> viewport = null;
-                if (IrisUtil.irisShaderPackEnabled()) {
+                if (IrisUtil.USED_IRIS_VIEWPORT) {
                     viewport = renderer.getViewport();
+                    IrisUtil.USED_IRIS_VIEWPORT = false;
                 } else {
                     viewport = renderer.setupViewport(matrices.projection(), matrices.modelView(), camera.x, camera.y, camera.z);
                 }

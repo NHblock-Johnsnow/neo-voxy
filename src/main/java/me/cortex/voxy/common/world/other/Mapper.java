@@ -83,6 +83,10 @@ public class Mapper {
         return (id&(((1L<<20)-1)<<27)) == 0;
     }
 
+    public static int isNotAirInt(long id) {
+        return Math.min(getBlockId(id), 1);
+    }
+
     public static int getBlockId(long id) {
         return (int) ((id>>27)&((1<<20)-1));
     }

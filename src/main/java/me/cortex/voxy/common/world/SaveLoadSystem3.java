@@ -128,11 +128,11 @@ public class SaveLoadSystem3 {
         }
 
         if (section.lvl == 0) {
-            int emptyBlockCount = 0;
+            int nonEmptyBlockCount = 0;
             for (long block : blockData) {
-                emptyBlockCount += Mapper.isAir(block) ? 1 : 0;
+                nonEmptyBlockCount += Mapper.isNotAirInt(block);
             }
-            section.nonEmptyBlockCount = WorldSection.SECTION_VOLUME-emptyBlockCount;
+            section.nonEmptyBlockCount = nonEmptyBlockCount;
         }
 
         ptr = lutBasePtr + (metadata & 0xFFFF) * 8L;
