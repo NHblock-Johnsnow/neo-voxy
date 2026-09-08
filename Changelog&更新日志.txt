@@ -1,5 +1,17 @@
 Neo Voxy 更新日志 / Changelog
 
+## 0.3.3（26.1.2 NeoForge 客户端版）— 2026-09-07
+
+### 简体中文
+
+- 修复移除远离视野的层级节点时截断子节点指针，偶发以 `-1` 访问分配位图并崩溃的问题。
+- 26.1.2 的构建与运行兼容基线调整为 Sodium 0.9.1，并将加载版本精确限制为 `0.9.1+mc26.1.2`。
+
+### English
+
+- Fixed a crash where removing distant hierarchy nodes truncated a child pointer and could access the allocation bitmap at index `-1`.
+- Changed the 26.1.2 build and runtime compatibility baseline to Sodium 0.9.1 and restricted loading to exactly `0.9.1+mc26.1.2`.
+
 ## 0.3.3（1.20.1 Forge 客户端版）/ 0.3.2（26.1.2 NeoForge 客户端版）— 2026-09-06
 
 ### 简体中文

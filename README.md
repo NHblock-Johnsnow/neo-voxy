@@ -25,7 +25,7 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 | 1.21.1 NeoForge 联动版 | 客户端与服务端 | Sodium 0.8 / Iris | 21 | `neo-voxy-0.4.4-beta.1-mc1.21.1-neoforge-integrations.jar` |
 | 1.21.1 NeoForge 纯客户端版 | 仅客户端 | Sodium 0.8 / Iris | 21 | `neo-voxy-0.3.0-mc1.21.1-neoforge-client.jar` |
 | 1.20.1 Forge 纯客户端版 | 仅客户端 | Embeddium / Oculus | 17 | `neo-voxy-0.3.3-mc1.20.1-forge-client.jar` |
-| 26.1.2 NeoForge 纯客户端版 | 仅客户端 | Sodium 0.9.2-alpha.4+ / Iris 1.11.2+ | 25 | `neo-voxy-0.3.2-mc26.1.2-neoforge-client.jar` |
+| 26.1.2 NeoForge 纯客户端版 | 仅客户端 | Sodium 0.9.1 / Iris 1.11.2+ | 25 | `neo-voxy-0.3.3-mc26.1.2-neoforge-client.jar` |
 
 最终发布 JAR 会剔除不需要的平台原生库、重复模块描述符和构建中间文件；运行所需的着色器、语言、模型与存储依赖不会删除。
 
@@ -46,7 +46,7 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 | 世界曲率 | ✅ | ✅ | ✅ | ✅ | GPU 顶点阶段实现 |
 | 远距离信标光束 | ✅ | — | — | — | 无限距离连续宽度曲线、光影阴影与无缝交接 |
 | 远距离玩家、乘骑物与动画 | ✅ | — | — | — | 联动版专项功能 |
-| Sodium / Iris | ✅ | ✅ | — | ✅ | 26.1.2 使用 Sodium 0.9.2-alpha.4+ 与 Iris 1.11.2+ |
+| Sodium / Iris | ✅ | ✅ | — | ✅ | 26.1.2 仅以 Sodium 0.9.1 为兼容目标，Iris 使用 1.11.2+ |
 | Embeddium / Oculus | — | — | ✅ | — | Embeddium 为渲染后端，Oculus 提供光影支持 |
 | Create | ✅ | — | — | — | 远景列车、轨道、动态结构与动力部件 |
 | Sable | ✅ | — | — | — | 远景物理结构及深度兼容 |

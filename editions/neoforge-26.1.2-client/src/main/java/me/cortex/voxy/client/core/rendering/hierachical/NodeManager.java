@@ -683,19 +683,19 @@ public class NodeManager {
                   }
                }
 
-               msk = (byte)this.nodeData.getChildPtr(nodeId);
-               if (msk == -1) {
+               int removedChildPtr = this.nodeData.getChildPtr(nodeId);
+               if (removedChildPtr == -1) {
                   throw new IllegalStateException();
                }
 
-               if (msk != 16777214) {
-                  childPtr = this.nodeData.getChildPtrCount(nodeId);
-                  if (Integer.bitCount(Byte.toUnsignedInt(childExistence)) != childPtr) {
+               if (removedChildPtr != 16777214) {
+                  int removedChildCount = this.nodeData.getChildPtrCount(nodeId);
+                  if (Integer.bitCount(Byte.toUnsignedInt(childExistence)) != removedChildCount) {
                      throw new IllegalStateException();
                   }
 
-                  for (int ix = 0; ix < childPtr; ix++) {
-                     if (this.nodeData.nodeExists(ix + msk)) {
+                  for (int ix = 0; ix < removedChildCount; ix++) {
+                     if (this.nodeData.nodeExists(ix + removedChildPtr)) {
                         throw new IllegalStateException();
                      }
                   }

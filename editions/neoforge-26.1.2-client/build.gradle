@@ -43,7 +43,7 @@ neoForge {
 
 dependencies {
     // Compile APIs and runtime libraries.
-    compileOnly files('libs/compile/sodium-neoforge-0.9.2-alpha.4+mc26.1.2-mod.jar')
+    compileOnly files('libs/compile/sodium-neoforge-0.9.1+mc26.1.2-mod.jar')
     compileOnly files('libs/compile/iris-neoforge-1.11.2+mc26.1.2.jar')
     compileOnly fileTree('src/main/resources/META-INF/jarjar') {
         include '*.jar'
@@ -51,7 +51,7 @@ dependencies {
         exclude 'lz4-java-*.jar'
     }
 
-    runtimeOnly files('libs/runtime/sodium-neoforge-0.9.2-alpha.4+mc26.1.2.jar')
+    runtimeOnly files('libs/runtime/sodium-neoforge-0.9.1+mc26.1.2.jar')
     runtimeOnly files('libs/runtime/iris-neoforge-1.11.2+mc26.1.2.jar')
 }
 
