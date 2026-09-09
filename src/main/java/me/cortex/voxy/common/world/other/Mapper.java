@@ -180,6 +180,8 @@ public class Mapper {
                             this, sentry.id, sentry.state, sentry.variantType, sentry.variantData);
                     me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.restoreVariant(
                             this, sentry.id, sentry.state, sentry.variantType, sentry.variantData);
+                    me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.restoreVariant(
+                            this, sentry.id, sentry.state, sentry.variantType, sentry.variantData);
                     continue;
                 }
 
@@ -427,6 +429,7 @@ public class Mapper {
     public void close() {
         DomumOrnamentumCompat.closeMapper(this);
         me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.closeMapper(this);
+        me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.closeMapper(this);
     }
 
 

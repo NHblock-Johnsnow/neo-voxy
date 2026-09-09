@@ -1,5 +1,17 @@
 Neo Voxy 更新日志 / Changelog
 
+## 0.4.6（1.21.1 NeoForge 联动版）— 2026-09-09
+
+### 简体中文
+
+- 新增 FramedBlocks 远景兼容：将方块实体驱动的主/副伪装、强化状态、可折叠偏移及特殊模型数据保存为 Voxy 持久化变体，并在 LOD 烘焙时恢复完整模型数据与伪装染色。
+- 区段缺少方块实体（例如服务端流式远景数据）时会复用同一 Voxy 世界缓存中的 FramedBlocks 变体，避免远处结构在重新摄取后退回空框架或错误材质。
+
+### English
+
+- Added distant FramedBlocks compatibility. Block-entity-driven primary/secondary camos, reinforcement, collapsible offsets, and special model data are stored as persistent Voxy variants and restored for LOD baking and camo tinting.
+- FramedBlocks variants are reused from the same Voxy world cache when a streamed section has no block entities, preventing distant structures from reverting to empty frames or incorrect materials after re-ingestion.
+
 ## 0.3.3（26.1.2 NeoForge 客户端版）— 2026-09-07
 
 ### 简体中文

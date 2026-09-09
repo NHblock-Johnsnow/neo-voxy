@@ -536,6 +536,7 @@ public class ModelFactory {
 
         BlockState colourState = DomumOrnamentumCompat.getColourState(this.mapper, blockId, blockState);
         colourState = me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.getColourState(this.mapper, blockId, colourState);
+        colourState = me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.getColourState(this.mapper, blockId, colourState);
         var colourProvider = colourState == null ? null : getColourProvider(colourState);
 
         boolean isBiomeColourDependent = false;

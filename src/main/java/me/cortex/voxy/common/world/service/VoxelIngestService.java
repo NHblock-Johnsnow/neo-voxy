@@ -48,6 +48,7 @@ public class VoxelIngestService {
                     task.world.getMapper(), task.world.storage, task.domumBlockEntities,
                     task.section, task.cx, task.cy, task.cz);
             me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.beginSection(task.world.getMapper(), task.world.storage, task.chunk, task.section, task.cx, task.cy, task.cz);
+            me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.beginSection(task.world.getMapper(), task.world.storage, task.chunk, task.section, task.cx, task.cy, task.cz);
             me.cortex.voxy.commonImpl.compat.littletiles.LittleTilesCompat.beginSection(
                     task.world.storage, task.littleTiles, task.section, task.cx, task.cy, task.cz);
             //Read off the section rather than the chunk's block entities: sections streamed by VSS arrive
@@ -77,6 +78,7 @@ public class VoxelIngestService {
         } finally {
             DomumOrnamentumCompat.endSection();
             me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.endSection();
+            me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.endSection();
             me.cortex.voxy.commonImpl.compat.littletiles.LittleTilesCompat.endSection();
             //The queue holds a ref per task rather than a one-shot markActive stamp, so a large backlog
             //on a laggy system cannot let the idle cleaner close the world out from under its own

@@ -152,6 +152,9 @@ public class SoftwareModelTextureBakery {
         if (!domumModel) {
             plan = me.cortex.voxy.commonImpl.compat.CreateCopycatCompat.getBakePlan(this.mapper, blockId, state);
         }
+        if (plan.isEmpty()) {
+            plan = me.cortex.voxy.commonImpl.compat.FramedBlocksCompat.getBakePlan(this.mapper, blockId, state);
+        }
         BlockState modelState = plan.modelState() == null ? state : plan.modelState();
         ModelData modelData = plan.modelData();
         var model = Minecraft.getInstance()
