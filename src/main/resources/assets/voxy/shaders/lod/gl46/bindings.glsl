@@ -7,7 +7,7 @@ layout(binding = 0, std140) uniform SceneUniform {
     float circularLodBoundaryEnabled;
     float lodBoundaryFadeStart;
     float lodBoundaryFadeEnd;
-    float _scenePadding;
+    float framedBlocksMaxDistanceSquared;
     vec4 worldCurveData;
 };
 

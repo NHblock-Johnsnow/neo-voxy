@@ -224,6 +224,9 @@ void setupQuad(out QuadData quad, const in Quad rawQuad, uvec2 sPos, bool genera
             // stable world seed with the tile coordinate of merged leaf quads.
             quad.attributeData.w |= makeBalancedLeafSeed(rawQuad, lodPos, lodLevel, face) << 16u;
         }
+        if (modelIsFramedBlocks(model)) {
+            quad.attributeData.w |= 1u << 14u;
+        }
     }
 
     vec4 faceSize = resolveFluidSideSize(model, rawQuad, face, getFaceSize(faceData), lodScale, lodLevel, fluidShape);

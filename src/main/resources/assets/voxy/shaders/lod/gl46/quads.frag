@@ -97,6 +97,10 @@ bool useCoarseFluidProxy() {
     return ((interData.w >> 13u) & 1u) == 1u;
 }
 
+bool useFramedBlocksDistance() {
+    return ((interData.w >> 14u) & 1u) == 1u;
+}
+
 vec2 varyBalancedLeafUV(vec2 localUV, vec2 tile, out uint transform) {
     uvec2 tilePos = uvec2(max(tile, vec2(0.0f)));
     uint hash = interData.w >> 16u;
@@ -167,6 +171,10 @@ vec4 computeColour(vec2 texturePos, vec4 colour) {
 
 
 void main() {
+    if (useFramedBlocksDistance() && boundaryDistanceSquared > framedBlocksMaxDistanceSquared) {
+        discard;
+        return;
+    }
     // Partial/cutout/translucent vanilla models leave holes in the source depth buffer. Stencil alone
     // would let their simplified LOD proxy show through those holes even deep inside the vanilla area.
     // Clip geometrically at the exact 3-D fade start, then allow every model to fill the real transition.

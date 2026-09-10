@@ -62,6 +62,8 @@ public class VoxyConfig {
     public int distantPowerGridWireMaxChunks = 0;
     public boolean distantSimulatedLasers = true;
     public int distantSimulatedLaserMaxChunks = 0;
+    public boolean distantFramedBlocks = true;
+    public int distantFramedBlocksMaxChunks = 0;
     public boolean distantLittleTiles = true;
     public int distantLittleTilesMaxChunks = 0;
     public boolean distantDomum = true;
