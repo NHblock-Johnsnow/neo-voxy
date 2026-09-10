@@ -10,7 +10,7 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 > **构建产物说明**：构建产物已被我人为删除。需要获得 JAR 时，请直接 Fork 本仓库，
 > 在 GitHub Actions 中下载自动构建产物，或按构建教程手动构建。
 >
-> **服务器数据共享**：Neo-Voxy 与 **Voxy Server Side** 完全兼容，推荐在服务器端部署它
+> **服务器数据共享**：Neo-Voxy 与 **[voxy-server-side]([https://github.com/NHblock714/voxy](https://www.curseforge.com/minecraft/mc-mods/voxy-server-side-forge-neoforge))** 完全兼容，推荐在服务器端部署它
 > 以共享 LOD 数据。
 >
 > **前置与兼容层**：Neo-Voxy 仅需要对应平台的 **Sodium**（NeoForge）或 **Embeddium**（Forge）
