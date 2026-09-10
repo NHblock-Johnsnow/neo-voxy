@@ -27,6 +27,7 @@ import org.joml.Matrix4f;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,12 +36,16 @@ import static org.lwjgl.opengl.GL20C.glUseProgram;
 import static org.lwjgl.opengl.GL30C.glBindVertexArray;
 
 public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
-    private static final String WIRE_TYPE = "powergrid:hanging_wire";
+    static final int SHAPE_CATENARY = 0;
+    static final int SHAPE_POLYLINE = 1;
+    static final int MAX_POLYLINE_POINTS = 4096;
+    private static final java.util.Set<String> WIRE_TYPES = java.util.Set.of(
+            "powergrid:hanging_wire", "powergrid:block_wire", "powergrid:cord", "powergrid:string_light_cord");
     private static final int MAX_SEGMENTS = 192;
     private static final long SAVE_INTERVAL_MS = 2000;
     private final Map<UUID, Entity> live = new HashMap<>();
     private final Map<UUID, Entry> wires = new HashMap<>();
-    private Reflection reflection;
+    private final Map<Class<?>, Reflection> reflections = new HashMap<>();
     private net.minecraft.resources.ResourceLocation loadedDimension;
     private int tick;
     private boolean reflectionError;
@@ -49,11 +54,22 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
     public static volatile int lastFrameDrawn;
 
     public record Source(double x1, double y1, double z1, double x2, double y2, double z2,
-                         double length, float thickness, int color) {
+                         double length, float thickness, int color, int shape, double[] points) {
+        Source(double x1, double y1, double z1, double x2, double y2, double z2,
+               double length, float thickness, int color) {
+            this(x1, y1, z1, x2, y2, z2, length, thickness, color, SHAPE_CATENARY, null);
+        }
+
         boolean valid() {
-            return Double.isFinite(x1) && Double.isFinite(y1) && Double.isFinite(z1)
+            boolean base = Double.isFinite(x1) && Double.isFinite(y1) && Double.isFinite(z1)
                     && Double.isFinite(x2) && Double.isFinite(y2) && Double.isFinite(z2)
                     && Double.isFinite(length) && length > 0 && Float.isFinite(thickness) && thickness > 0;
+            if (!base || (shape != SHAPE_CATENARY && shape != SHAPE_POLYLINE)) return false;
+            if (shape == SHAPE_CATENARY) return true;
+            if (points == null || points.length < 6 || points.length % 3 != 0
+                    || points.length > MAX_POLYLINE_POINTS * 3) return false;
+            for (double point : points) if (!Double.isFinite(point)) return false;
+            return true;
         }
 
         long signature() {
@@ -61,7 +77,8 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
             h = h * 31 + Double.doubleToLongBits(y1); h = h * 31 + Double.doubleToLongBits(z1);
             h = h * 31 + Double.doubleToLongBits(x2); h = h * 31 + Double.doubleToLongBits(y2);
             h = h * 31 + Double.doubleToLongBits(z2); h = h * 31 + Double.doubleToLongBits(length);
-            h = h * 31 + Float.floatToIntBits(thickness); h = h * 31 + color;
+            h = h * 31 + Float.floatToIntBits(thickness); h = h * 31 + color; h = h * 31 + shape;
+            h = h * 31 + java.util.Arrays.hashCode(points);
             return h;
         }
     }
@@ -154,7 +171,13 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
 
     private void capture(ClientLevel level, Entity entity, boolean forceSave) {
         try {
-            if (reflection == null) reflection = new Reflection(entity.getClass());
+            Reflection reflection = reflections.computeIfAbsent(entity.getClass(), type -> {
+                try {
+                    return new Reflection(type, wireType(entity));
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
             Source source = reflection.read(entity);
             if (source == null || !source.valid()) return;
             UUID id = entity.getUUID();
@@ -242,6 +265,20 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
             float u = (sprite.getU0() + sprite.getU1()) * 0.5f;
             float v = (sprite.getV0() + sprite.getV1()) * 0.5f;
             double ox = (s.x1 + s.x2) * 0.5, oy = s.y1, oz = (s.z1 + s.z2) * 0.5;
+            if (s.shape == SHAPE_POLYLINE) {
+                double[] points = s.points;
+                for (int i = 3; i < points.length; i += 3) {
+                    Vec3 previous = new Vec3(points[i - 3] - ox, points[i - 2] - oy, points[i - 1] - oz);
+                    Vec3 next = new Vec3(points[i] - ox, points[i + 1] - oy, points[i + 2] - oz);
+                    if (previous.distanceToSqr(next) < 1.0e-10) continue;
+                    Vec3 worldMid = previous.add(next).scale(0.5).add(ox, oy, oz);
+                    int light = DistantLightSampler.samplePeek(level, (int) Math.floor(worldMid.x),
+                            (int) Math.floor(worldMid.y), (int) Math.floor(worldMid.z));
+                    emitPrism(builder, previous, next, Math.max(0.0225f, s.thickness), u, v,
+                            DistantLightSampler.sky(light), DistantLightSampler.block(light), s.color);
+                }
+                return builder.build();
+            }
             double hx = s.x2 - s.x1, hz = s.z2 - s.z1, horizontal = Math.sqrt(hx * hx + hz * hz);
             double vertical = s.y2 - s.y1;
             int segments = Math.clamp((int) Math.ceil(s.length / 2.0), 5, MAX_SEGMENTS);
@@ -305,7 +342,11 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
     }
 
     private static boolean isWire(Entity entity) {
-        return WIRE_TYPE.equals(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString());
+        return WIRE_TYPES.contains(wireType(entity));
+    }
+
+    private static String wireType(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
     }
 
     private static me.cortex.voxy.common.config.section.SectionStorage storageFor(ClientLevel level) {
@@ -324,19 +365,24 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
 
     private void clear() {
         clearMeshes();
-        wires.clear(); live.clear(); loadedDimension = null; reflection = null; reflectionError = false;
+        wires.clear(); live.clear(); loadedDimension = null; reflections.clear(); reflectionError = false;
         wireCount = 0; lastFrameDrawn = 0;
     }
 
     private static final class Reflection {
-        final Field terminal1, terminal2, placedLength;
+        final boolean polyline;
+        final Field terminal1, terminal2, placedLength, segments, pointDirection, pointLength;
         final Method getWireEntry, getColor, thickness, texture;
 
-        Reflection(Class<?> wireClass) throws Exception {
-            terminal1 = wireClass.getField("terminalPos1");
-            terminal2 = wireClass.getField("terminalPos2");
-            placedLength = wireClass.getDeclaredField("placedLength");
-            placedLength.setAccessible(true);
+        Reflection(Class<?> wireClass, String type) throws Exception {
+            polyline = "powergrid:block_wire".equals(type);
+            terminal1 = polyline ? null : wireClass.getField("terminalPos1");
+            terminal2 = polyline ? null : wireClass.getField("terminalPos2");
+            placedLength = polyline ? null : findField(wireClass, "placedLength");
+            segments = polyline ? wireClass.getField("segments") : null;
+            Class<?> point = polyline ? Class.forName("org.patryk3211.powergrid.electricity.wire.BlockWireEntity$Point") : null;
+            pointDirection = polyline ? point.getField("direction") : null;
+            pointLength = polyline ? point.getField("gridLength") : null;
             getWireEntry = wireClass.getMethod("getWireEntry");
             getColor = wireClass.getMethod("getColor");
             Class<?> entry = getWireEntry.getReturnType();
@@ -345,15 +391,50 @@ public final class PowerGridWireRenderer implements LodPipelineHooks.Renderer {
         }
 
         Source read(Entity entity) throws Exception {
-            Vec3 a = (Vec3) terminal1.get(entity), b = (Vec3) terminal2.get(entity);
             Object entry = getWireEntry.invoke(entity);
-            if (a == null || b == null || entry == null) return null;
-            double length = ((Number) placedLength.get(entity)).doubleValue();
+            if (entry == null) return null;
             float width = ((Number) thickness.invoke(entry)).floatValue();
             int dye = ((Number) getColor.invoke(entity)).intValue();
             String tex = String.valueOf(texture.invoke(entry));
             int color = dye == -1 ? materialColor(tex) : dye;
+            if (polyline) return readPolyline(entity, width, color);
+            Vec3 a = (Vec3) terminal1.get(entity), b = (Vec3) terminal2.get(entity);
+            if (a == null || b == null) return null;
+            double length = ((Number) placedLength.get(entity)).doubleValue();
             return new Source(a.x, a.y, a.z, b.x, b.y, b.z, length, width, color);
+        }
+
+        private Source readPolyline(Entity entity, float width, int color) throws Exception {
+            List<?> sourceSegments = (List<?>) segments.get(entity);
+            if (sourceSegments == null || sourceSegments.isEmpty()
+                    || sourceSegments.size() + 1 > MAX_POLYLINE_POINTS) return null;
+            double[] points = new double[(sourceSegments.size() + 1) * 3];
+            Vec3 current = entity.position();
+            points[0] = current.x; points[1] = current.y; points[2] = current.z;
+            double length = 0.0;
+            int offset = 3;
+            for (Object segment : sourceSegments) {
+                Direction direction = (Direction) pointDirection.get(segment);
+                double segmentLength = pointLength.getInt(segment) / 16.0;
+                current = current.add(direction.getStepX() * segmentLength,
+                        direction.getStepY() * segmentLength, direction.getStepZ() * segmentLength);
+                points[offset++] = current.x; points[offset++] = current.y; points[offset++] = current.z;
+                length += Math.abs(segmentLength);
+            }
+            return new Source(points[0], points[1], points[2], current.x, current.y, current.z,
+                    length, width, color, SHAPE_POLYLINE, points);
+        }
+
+        private static Field findField(Class<?> type, String name) throws Exception {
+            for (Class<?> cursor = type; cursor != null; cursor = cursor.getSuperclass()) {
+                try {
+                    Field field = cursor.getDeclaredField(name);
+                    field.setAccessible(true);
+                    return field;
+                } catch (NoSuchFieldException ignored) {
+                }
+            }
+            throw new NoSuchFieldException(name);
         }
     }
 

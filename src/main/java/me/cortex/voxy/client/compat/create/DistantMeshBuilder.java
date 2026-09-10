@@ -37,6 +37,11 @@ public final class DistantMeshBuilder {
 
     public void rawVertex(float x, float y, float z, float u, float v, int skyLight, int blockLight,
                           float shade, int face, int tintRgb, int alpha) {
+        this.rawVertex(x, y, z, u, v, skyLight, blockLight, shade, face, tintRgb, alpha, 0);
+    }
+
+    public void rawVertex(float x, float y, float z, float u, float v, int skyLight, int blockLight,
+                          float shade, int face, int tintRgb, int alpha, int customId) {
         this.ensure(DistantMesh.STRIDE);
         //Six comparisons against a mesh baked once and then drawn every frame it is in range. Note quad()
         //writes its vertices straight to the buffer rather than coming through here, so it accumulates
@@ -54,6 +59,7 @@ public final class DistantMeshBuilder {
         this.buffer.put((byte) face);
         this.buffer.put((byte) (tintRgb >> 16)).put((byte) (tintRgb >> 8)).put((byte) tintRgb)
                 .put((byte) Math.clamp(alpha, 0, 255));
+        this.buffer.putInt(customId);
         this.vertexCount++;
     }
 
@@ -159,6 +165,7 @@ public final class DistantMeshBuilder {
             this.buffer.putFloat(Float.intBitsToFloat(vertices[base + 5]));
             this.buffer.put(lightU).put(lightV).put(shade).put(face);
             this.buffer.put(tr).put(tg).put(tb).put((byte) 0xFF);
+            this.buffer.putInt(0);
         }
         this.vertexCount += 4;
     }

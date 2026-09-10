@@ -13,7 +13,7 @@ import java.util.UUID;
 
 final class PowerGridWireStore {
     static final String TABLE = "powergrid_wires";
-    private static final byte FORMAT = 1;
+    private static final byte FORMAT = 2;
 
     private PowerGridWireStore() {}
 
@@ -30,6 +30,10 @@ final class PowerGridWireStore {
             out.writeDouble(source.length());
             out.writeFloat(source.thickness());
             out.writeInt(source.color());
+            out.writeByte(source.shape());
+            double[] points = source.points();
+            out.writeShort(points == null ? 0 : points.length);
+            if (points != null) for (double point : points) out.writeDouble(point);
             out.flush();
             storage.putAux(TABLE, key(id), bytes.toByteArray());
         } catch (Throwable t) {
@@ -57,17 +61,30 @@ final class PowerGridWireStore {
     }
 
     private static Stored decode(byte[] bytes) {
-        if (bytes == null || bytes.length < 2 || bytes[0] != FORMAT) return null;
+        if (bytes == null || bytes.length < 2 || (bytes[0] != 1 && bytes[0] != FORMAT)) return null;
         try (var in = new DataInputStream(new ByteArrayInputStream(bytes, 1, bytes.length - 1))) {
             var id = new UUID(in.readLong(), in.readLong());
             var source = new PowerGridWireRenderer.Source(
                     in.readDouble(), in.readDouble(), in.readDouble(),
                     in.readDouble(), in.readDouble(), in.readDouble(),
-                    in.readDouble(), in.readFloat(), in.readInt());
+                    in.readDouble(), in.readFloat(), in.readInt(),
+                    bytes[0] >= 2 ? in.readUnsignedByte() : PowerGridWireRenderer.SHAPE_CATENARY,
+                    bytes[0] >= 2 ? readPoints(in) : null);
             return source.valid() ? new Stored(id, source) : null;
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    private static double[] readPoints(DataInputStream in) throws Exception {
+        int count = in.readUnsignedShort();
+        if (count == 0) return null;
+        if (count < 6 || count > (PowerGridWireRenderer.MAX_POLYLINE_POINTS * 3) || count % 3 != 0) {
+            throw new IllegalArgumentException("Invalid PowerGrid wire point count " + count);
+        }
+        double[] points = new double[count];
+        for (int i = 0; i < count; i++) points[i] = in.readDouble();
+        return points;
     }
 
     private static long key(UUID id) {

@@ -107,6 +107,7 @@ public class Voxy {
                 var littleTilesRenderer = new me.cortex.voxy.client.compat.littletiles.LittleTilesDistantRenderer();
                 NeoForge.EVENT_BUS.register(littleTilesRenderer);
                 me.cortex.voxy.client.compat.LodPipelineHooks.register(littleTilesRenderer);
+                me.cortex.voxy.client.compat.LodPipelineHooks.registerTranslucent(littleTilesRenderer);
             }
 
             if (ModList.get().isLoaded("domum_ornamentum")) {

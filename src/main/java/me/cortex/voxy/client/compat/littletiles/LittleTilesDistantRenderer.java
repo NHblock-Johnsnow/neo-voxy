@@ -15,8 +15,10 @@ import me.cortex.voxy.commonImpl.compat.littletiles.LittleTilesStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -33,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.lwjgl.opengl.GL11C.GL_ALWAYS;
+import static org.lwjgl.opengl.GL11C.GL_BLEND;
 import static org.lwjgl.opengl.GL11C.GL_CULL_FACE;
 import static org.lwjgl.opengl.GL11C.GL_DEPTH_TEST;
 import static org.lwjgl.opengl.GL11C.GL_EQUAL;
@@ -45,10 +48,14 @@ import static org.lwjgl.opengl.GL11C.glDisable;
 import static org.lwjgl.opengl.GL11C.glEnable;
 import static org.lwjgl.opengl.GL11C.glStencilFunc;
 import static org.lwjgl.opengl.GL11C.glStencilOp;
+import static org.lwjgl.opengl.GL14C.glBlendFuncSeparate;
+import static org.lwjgl.opengl.GL11C.GL_ONE;
+import static org.lwjgl.opengl.GL11C.GL_ONE_MINUS_SRC_ALPHA;
+import static org.lwjgl.opengl.GL11C.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL20C.glUseProgram;
 import static org.lwjgl.opengl.GL30C.glBindVertexArray;
 
-public final class LittleTilesDistantRenderer implements LodPipelineHooks.Renderer {
+public final class LittleTilesDistantRenderer implements LodPipelineHooks.Renderer, LodPipelineHooks.TranslucentRenderer {
     private static final int BUCKET_SHIFT = 3;
     private static final int BUCKET_BLOCKS = 16 << BUCKET_SHIFT;
     private static final int MAX_BAKES_IN_FLIGHT = 2;
@@ -150,11 +157,23 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
 
     @Override
     public void render(me.cortex.voxy.client.core.AbstractRenderPipeline pipeline, Viewport<?> viewport, int depthFunc) {
+        renderMeshes(pipeline, viewport, depthFunc, false);
+    }
+
+    @Override
+    public void renderTranslucent(me.cortex.voxy.client.core.AbstractRenderPipeline pipeline,
+                                  Viewport<?> viewport, int depthFunc) {
+        renderMeshes(pipeline, viewport, depthFunc, true);
+    }
+
+    private void renderMeshes(me.cortex.voxy.client.core.AbstractRenderPipeline pipeline,
+                              Viewport<?> viewport, int depthFunc, boolean translucent) {
         if (this.sections.isEmpty() || !VoxyConfig.CONFIG.isRenderingEnabled()
                 || !VoxyConfig.CONFIG.distantLittleTiles) return;
         var mc = Minecraft.getInstance();
         if (mc.level == null) return;
-        pipeline.setupAndBindOpaque(viewport);
+        if (translucent) pipeline.setupAndBindTranslucent(viewport);
+        else pipeline.setupAndBindOpaque(viewport);
 
         double vanillaReach = Math.max(0.0, mc.options.getEffectiveRenderDistance() * 16.0 - 14.0);
         var boundary = LodBoundaryFade.getDistances();
@@ -168,7 +187,8 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
         try {
             for (Entry entry : this.candidates) {
                 var source = entry.snapshot;
-                if (entry.mesh == null) continue;
+                DistantMesh mesh = translucent ? entry.translucentMesh : entry.opaqueMesh;
+                if (mesh == null) continue;
                 double ox = source.sx() * 16.0, oy = source.sy() * 16.0, oz = source.sz() * 16.0;
                 double dx = ox + 8.0 - viewport.cameraX;
                 double dy = oy + 8.0 - viewport.cameraY;
@@ -181,12 +201,17 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
                     //LittleTiles snapshots already carry per-vertex sky/block light. The uniform-light
                     //variant is for moving structures and was previously fed (1,1), making these meshes
                     //effectively full-bright at night and in shade.
-                    DistantShaders.forPipeline(pipeline, false).bind();
+                    (translucent ? DistantShaders.forTranslucentPipeline(pipeline)
+                            : DistantShaders.forPipeline(pipeline, false)).bind();
                     DistantShaders.bindTextures();
                     glEnable(GL_DEPTH_TEST);
                     glDepthFunc(depthFunc);
-                    glDepthMask(true);
+                    glDepthMask(!translucent);
                     glDisable(GL_CULL_FACE);
+                    if (translucent) {
+                        glEnable(GL_BLEND);
+                        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                    }
                     glEnable(GL_STENCIL_TEST);
                     glStencilFunc(GL_ALWAYS, 3, 0xFF);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -195,7 +220,7 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
                 transform.set(viewport.MVP).translate((float) (ox - viewport.cameraX),
                         (float) (oy - viewport.cameraY), (float) (oz - viewport.cameraZ));
                 DistantShaders.uploadTransform(transform);
-                entry.mesh.draw();
+                mesh.draw();
             }
             if (bound) {
                 glBindVertexArray(0);
@@ -209,10 +234,11 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
         }
     }
 
-    private static DistantMeshBuilder.CpuMesh bake(LittleTilesCompat.SectionSnapshot snapshot, MaterialSample[] materials) {
+    private static CpuMeshes bake(LittleTilesCompat.SectionSnapshot snapshot, MaterialSample[] materials) {
         var occupied = new it.unimi.dsi.fastutil.ints.IntOpenHashSet(snapshot.cells().size() * 2);
         for (var cell : snapshot.cells()) occupied.add(cell.coordinate());
-        var builder = new DistantMeshBuilder();
+        var opaqueBuilder = new DistantMeshBuilder();
+        var translucentBuilder = new DistantMeshBuilder();
         try {
             for (var cell : snapshot.cells()) {
                 int coordinate = cell.coordinate();
@@ -220,7 +246,9 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
                 float x0 = x / 8.0f, y0 = y / 8.0f, z0 = z / 8.0f;
                 float x1 = x0 + 0.125f, y1 = y0 + 0.125f, z1 = z0 + 0.125f;
                 var material = materials[cell.material()];
-                int sky = (cell.light() >>> 4) & 15, block = cell.light() & 15;
+                var builder = material.translucent ? translucentBuilder : opaqueBuilder;
+                int sky = (cell.light() >>> 4) & 15;
+                int block = Math.max(cell.light() & 15, material.emission);
                 if (x == 0 || !occupied.contains(coordinate - 1)) face(builder, Direction.WEST, x0,y0,z0,x1,y1,z1,material,sky,block);
                 if (x == 127 || !occupied.contains(coordinate + 1)) face(builder, Direction.EAST, x0,y0,z0,x1,y1,z1,material,sky,block);
                 if (y == 0 || !occupied.contains(coordinate - (1 << 14))) face(builder, Direction.DOWN, x0,y0,z0,x1,y1,z1,material,sky,block);
@@ -228,9 +256,10 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
                 if (z == 0 || !occupied.contains(coordinate - (1 << 7))) face(builder, Direction.NORTH, x0,y0,z0,x1,y1,z1,material,sky,block);
                 if (z == 127 || !occupied.contains(coordinate + (1 << 7))) face(builder, Direction.SOUTH, x0,y0,z0,x1,y1,z1,material,sky,block);
             }
-            return builder.assemble();
+            return new CpuMeshes(opaqueBuilder.assemble(), translucentBuilder.assemble());
         } catch (Throwable t) {
-            builder.discard();
+            opaqueBuilder.discard();
+            translucentBuilder.discard();
             me.cortex.voxy.common.Logger.error("Baking LittleTiles LOD mesh", t);
             return null;
         }
@@ -247,7 +276,9 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
             case WEST -> new float[][]{{x0,y0,z0},{x0,y1,z0},{x0,y1,z1},{x0,y0,z1}};
             case EAST -> new float[][]{{x1,y0,z1},{x1,y1,z1},{x1,y1,z0},{x1,y0,z0}};
         };
-        for(int i=0;i<4;i++) b.rawVertex(p[i][0],p[i][1],p[i][2],material.u,material.v,sky,block,shade,d.ordinal(),material.tint);
+        int face = d.get3DDataValue();
+        for(int i=0;i<4;i++) b.rawVertex(p[i][0],p[i][1],p[i][2],material.u[face],material.v[face],
+                sky,block,shade,face,material.tint,material.alpha,material.customId);
     }
 
     private static int multiply(int a, int b) {
@@ -262,15 +293,47 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
         var pos = new BlockPos(snapshot.sx() * 16 + 8, snapshot.sy() * 16 + 8, snapshot.sz() * 16 + 8);
         for (int i = 0; i < samples.length; i++) {
             BlockState state = snapshot.materials().get(i).state();
-            TextureAtlasSprite sprite = mc.getBlockRenderer().getBlockModel(state)
-                    .getParticleIcon(net.neoforged.neoforge.client.model.data.ModelData.EMPTY);
-            int tint = snapshot.materials().get(i).color() & 0xFFFFFF;
+            var modelData = net.neoforged.neoforge.client.model.data.ModelData.EMPTY;
+            var model = mc.getBlockRenderer().getBlockModel(state);
+            TextureAtlasSprite fallback = model.getParticleIcon(modelData);
+            float[] u = new float[6], v = new float[6];
+            boolean translucent = false;
+            var random = RandomSource.create(42);
+            var layers = model.getRenderTypes(state, random, modelData);
+            for (RenderType layer : layers) if (layer == RenderType.translucent()) translucent = true;
+            for (Direction direction : Direction.values()) {
+                TextureAtlasSprite sprite = fallback;
+                for (RenderType layer : layers) {
+                    random.setSeed(42);
+                    var quads = model.getQuads(state, direction, random, modelData, layer);
+                    if (!quads.isEmpty()) {
+                        sprite = quads.getFirst().getSprite();
+                        break;
+                    }
+                }
+                int face = direction.get3DDataValue();
+                u[face] = (sprite.getU0() + sprite.getU1()) * 0.5f;
+                v[face] = (sprite.getV0() + sprite.getV1()) * 0.5f;
+            }
+            int color = snapshot.materials().get(i).color();
+            int alpha = (color >>> 24) & 0xFF;
+            int tint = color & 0xFFFFFF;
             int blockTint = mc.getBlockColors().getColor(state, mc.level, pos, 0);
             if (blockTint != -1) tint = multiply(tint, blockTint);
-            samples[i] = new MaterialSample((sprite.getU0() + sprite.getU1()) * 0.5f,
-                    (sprite.getV0() + sprite.getV1()) * 0.5f, tint);
+            samples[i] = new MaterialSample(u, v, tint, alpha, translucent || alpha < 255,
+                    Math.clamp(state.getLightEmission(mc.level, pos), 0, 15), shaderMaterialId(state));
         }
         return samples;
+    }
+
+    private static int shaderMaterialId(BlockState state) {
+        try {
+            if (!me.cortex.voxy.client.core.util.IrisUtil.IRIS_INSTALLED) return 0;
+            var ids = net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings.INSTANCE.getBlockStateIds();
+            return ids != null && ids.containsKey(state) ? ids.getInt(state) : 0;
+        } catch (Throwable ignored) {
+            return 0;
+        }
     }
 
     private void refreshCandidates(double cameraX, double cameraY, double cameraZ, double maxDistance) {
@@ -296,17 +359,16 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
                     if (entry == null || distanceSq(entry.snapshot, cameraX, cameraY, cameraZ) > maxDistanceSq) continue;
                     entry.candidateGeneration = generation;
                     this.candidates.add(entry);
-                    if (entry.mesh == null && !this.baking.contains(key) && this.queued.add(key)) this.bakeQueue.add(key);
+                    if (!entry.hasMesh() && !this.baking.contains(key) && this.queued.add(key)) this.bakeQueue.add(key);
                 }
             }
         }
 
         double farSq = (maxDistance + BUCKET_BLOCKS * 2.0) * (maxDistance + BUCKET_BLOCKS * 2.0);
         for (Entry entry : oldCandidates) {
-            if (entry.candidateGeneration != generation && entry.mesh != null
+            if (entry.candidateGeneration != generation && entry.hasMesh()
                     && distanceSq(entry.snapshot, cameraX, cameraY, cameraZ) > farSq) {
-                entry.mesh.free();
-                entry.mesh = null;
+                entry.closeMeshes();
             }
         }
         this.lastBucketX = bucketX;
@@ -322,7 +384,7 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
             long key = this.bakeQueue.removeFirst();
             this.queued.remove(key);
             Entry entry = this.sections.get(key);
-            if (entry == null || entry.mesh != null || this.baking.contains(key)) continue;
+            if (entry == null || entry.hasMesh() || this.baking.contains(key)) continue;
             if (distanceSq(entry.snapshot, cameraX, cameraY, cameraZ) > maxDistanceSq) continue;
             MaterialSample[] materials;
             try {
@@ -336,7 +398,7 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
             this.baking.add(key);
             this.bakesInFlight++;
             this.bakeExecutor.execute(() -> {
-                DistantMeshBuilder.CpuMesh mesh = null;
+                CpuMeshes mesh = null;
                 try {
                     mesh = bake(snapshot, materials);
                 } catch (Throwable t) {
@@ -357,10 +419,11 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
             if (result.generation != this.worldGeneration || entry == null || entry.snapshot != result.snapshot
                     || distanceSq(result.snapshot, cameraX, cameraY, cameraZ) > maxDistanceSq) {
                 if (result.mesh != null) result.mesh.free();
-                if (entry != null && entry.mesh == null) this.candidatesDirty = true;
+                if (entry != null && !entry.hasMesh()) this.candidatesDirty = true;
                 continue;
             }
-            entry.mesh = DistantMeshBuilder.upload(result.mesh);
+            entry.opaqueMesh = DistantMeshBuilder.upload(result.mesh == null ? null : result.mesh.opaque);
+            entry.translucentMesh = DistantMeshBuilder.upload(result.mesh == null ? null : result.mesh.translucent);
             uploaded++;
         }
     }
@@ -395,7 +458,7 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
     }
 
     private void clearMeshes() {
-        for (var entry : this.sections.values()) if (entry.mesh != null) entry.mesh.free();
+        for (var entry : this.sections.values()) entry.closeMeshes();
         this.sections.clear();
         this.spatialBuckets.clear();
         this.candidates.clear();
@@ -433,7 +496,7 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
             Entry old = this.sections.remove(key);
             if (old != null) {
                 removeFromSpatialIndex(key, old);
-                if (old.mesh != null) old.mesh.free();
+                old.closeMeshes();
             }
             this.queued.remove(key);
             if (update.persist) LittleTilesStore.save(this.storage, snapshot);
@@ -454,17 +517,32 @@ public final class LittleTilesDistantRenderer implements LodPipelineHooks.Render
     }
 
     private record Update(SectionStorage storage, LittleTilesCompat.SectionSnapshot snapshot, boolean persist) {}
-    private record MaterialSample(float u, float v, int tint) {}
+    private record MaterialSample(float[] u, float[] v, int tint, int alpha, boolean translucent,
+                                  int emission, int customId) {}
+    private record CpuMeshes(DistantMeshBuilder.CpuMesh opaque, DistantMeshBuilder.CpuMesh translucent) {
+        void free() {
+            if (opaque != null) opaque.free();
+            if (translucent != null) translucent.free();
+        }
+    }
     private record BakeResult(long key, int generation, LittleTilesCompat.SectionSnapshot snapshot,
-                              DistantMeshBuilder.CpuMesh mesh) {}
+                              CpuMeshes mesh) {}
     private static final class Entry {
         final LittleTilesCompat.SectionSnapshot snapshot;
-        DistantMesh mesh;
+        DistantMesh opaqueMesh;
+        DistantMesh translucentMesh;
         long bucket;
         int candidateGeneration;
         Entry(LittleTilesCompat.SectionSnapshot snapshot, DistantMesh mesh) {
             this.snapshot = snapshot;
-            this.mesh = mesh;
+            this.opaqueMesh = mesh;
+        }
+        boolean hasMesh() { return opaqueMesh != null || translucentMesh != null; }
+        void closeMeshes() {
+            if (opaqueMesh != null) opaqueMesh.free();
+            if (translucentMesh != null) translucentMesh.free();
+            opaqueMesh = null;
+            translucentMesh = null;
         }
     }
 }

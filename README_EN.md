@@ -23,7 +23,7 @@ Neo Voxy is maintained by **JohnSnow**. It extends [NHblock714/voxy](https://git
 
 | Edition | Install side | Renderer | Java | Release file |
 |---|---|---|---:|---|
-| 1.21.1 NeoForge integrations | Client and server | Sodium 0.8 / Iris | 21 | `neo-voxy-0.4.6-mc1.21.1-neoforge-integrations.jar` |
+| 1.21.1 NeoForge integrations | Client and server | Sodium 0.8 / Iris | 21 | `neo-voxy-0.4.7-mc1.21.1-neoforge-integrations.jar` |
 | 1.21.1 NeoForge client | Client only | Sodium 0.8 / Iris | 21 | `neo-voxy-0.3.0-mc1.21.1-neoforge-client.jar` |
 | 1.20.1 Forge client | Client only | Embeddium / Oculus | 17 | `neo-voxy-0.3.3-mc1.20.1-forge-client.jar` |
 | 26.1.2 NeoForge client | Client only | Sodium 0.9.1 / Iris 1.11.2+ | 25 | `neo-voxy-0.3.3-mc26.1.2-neoforge-client.jar` |
@@ -54,8 +54,8 @@ Release JARs remove unused platform natives, duplicate module descriptors, and b
 | Ecliptic Seasons | ✅ | — | — | — | Seasonal snow in distant terrain |
 | Domum Ornamentum | ✅ | — | — | — | Full support: detailed dedicated models, materials, and persistent cache |
 | FramedBlocks | ✅ | — | — | — | Primary/secondary camos, special shape data, and persistent distant materials |
-| LittleTiles | 🧪 | — | — | — | Preliminary: persistent lightweight 1/8-block LOD meshes for static structures |
-| PowerGrid | ✅ | — | — | — | Full support: persistent simplified catenary LOD meshes for hanging wires |
+| LittleTiles | 🧪 | — | — | — | Persistent 1/8-block static LOD meshes retaining alpha, emission, and shader material sampling |
+| PowerGrid | ✅ | — | — | — | Full support for hanging, block-routed, cord, and string-light wire LOD meshes |
 | Simulated / Create Aeronautics | 🧪 | — | — | — | Laser-pointer beams remain visible beyond block-entity range |
 
 `✅` means supported, `🧪` means preliminary compatibility, and `—` means no dedicated feature or not applicable; it does not necessarily imply incompatibility with basic terrain LOD rendering. Optional integrations activate only when the corresponding mod is installed. Create, Sable, and seasonal compatibility originate from **NHblock**.
@@ -73,7 +73,8 @@ Release JARs remove unused platform natives, duplicate module descriptors, and b
 - Subdivision size: controls the screen-space threshold for finer LODs. Lower values improve detail at higher build and rendering cost.
 - World curvature: all four editions curve only the LOD beyond vanilla distance in the GPU vertex stage; 0 disables it.
 - Distant beacons: the integrations edition builds beams from cached columns, hands off only after the vanilla beam is ready, uses a gentle unbounded width curve at extreme range, and submits lightweight shadow geometry during Iris shadow passes.
-- PowerGrid distant wires: the integrations edition stores hanging wires the player has seen and reconstructs simplified catenaries from their endpoints and cable length beyond entity tracking range. This integration is considered fully compatible and has an independent switch and distance limit.
+- PowerGrid distant wires: the integrations edition covers all registered PowerGrid wire entities: hanging wires, routed block wires, cords, and string-light cords. Hanging types reconstruct their catenary from endpoints and length, while block wires preserve their routed polyline. The feature has an independent switch and distance limit.
+- LittleTiles distant materials: static 1/8-block meshes are split into opaque and translucent passes and retain tile alpha, block emission, and per-face atlas coordinates. Shader patches can use those same atlas coordinates for normal/specular material sampling.
 - FramedBlocks: the integrations edition records primary and secondary camos, reinforcement, collapsible offsets, and other block-entity model data as persistent section variants. LOD baking restores the complete `ModelData` and uses the camo block as its tint source.
 - Simulated distant lasers: the integrations edition captures each laser pointer's dynamic direction, length, colour, and redstone strength, then continues rendering it through a dedicated translucent stage beyond block-entity range. It has an independent switch and distance limit.
 - Join message: shown whenever a server or single-player world is entered, enabled by default and removable from the Neo Voxy Sodium/Embeddium settings.

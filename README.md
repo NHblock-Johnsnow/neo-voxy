@@ -22,7 +22,7 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 
 | 版本 | 安装位置 | 渲染依赖 | Java | 发布文件 |
 |---|---|---|---:|---|
-| 1.21.1 NeoForge 联动版 | 客户端与服务端 | Sodium 0.8 / Iris | 21 | `neo-voxy-0.4.6-mc1.21.1-neoforge-integrations.jar` |
+| 1.21.1 NeoForge 联动版 | 客户端与服务端 | Sodium 0.8 / Iris | 21 | `neo-voxy-0.4.7-mc1.21.1-neoforge-integrations.jar` |
 | 1.21.1 NeoForge 纯客户端版 | 仅客户端 | Sodium 0.8 / Iris | 21 | `neo-voxy-0.3.0-mc1.21.1-neoforge-client.jar` |
 | 1.20.1 Forge 纯客户端版 | 仅客户端 | Embeddium / Oculus | 17 | `neo-voxy-0.3.3-mc1.20.1-forge-client.jar` |
 | 26.1.2 NeoForge 纯客户端版 | 仅客户端 | Sodium 0.9.1 / Iris 1.11.2+ | 25 | `neo-voxy-0.3.3-mc26.1.2-neoforge-client.jar` |
@@ -53,8 +53,8 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 | Ecliptic Seasons | ✅ | — | — | — | 远景季节积雪 |
 | Domum Ornamentum | ✅ | — | — | — | 完全兼容：精细独立模型、材质与持久缓存 |
 | FramedBlocks | ✅ | — | — | — | 主/副伪装、特殊形状数据与远景材质持久缓存 |
-| LittleTiles | 🧪 | — | — | — | 初步兼容：静态结构使用持久化的 1/8 格轻量 LOD 网格 |
-| PowerGrid | ✅ | — | — | — | 完全兼容：悬垂电线使用持久化的简化悬链线 LOD 网格 |
+| LittleTiles | 🧪 | — | — | — | 静态结构使用持久化的 1/8 格 LOD 网格，保留透明度、发光与光影材质采样 |
+| PowerGrid | ✅ | — | — | — | 完全兼容：悬垂线、方块折线、软线及灯串线均使用持久化 LOD 网格 |
 | Simulated / Create Aeronautics | 🧪 | — | — | — | 激光指示器光束可在方块实体距离外继续渲染 |
 
 `✅` 表示支持，`🧪` 表示初步兼容，`—` 表示未包含专项功能或不适用；后者不代表基础地形 LOD 一定与该模组冲突。专项联动仅在对应模组已安装时启用。Create、Sable 与节气兼容来自 **NHblock**。
@@ -72,7 +72,8 @@ Neo Voxy 由 **JohnSnow** 维护，在 [NHblock714/voxy](https://github.com/NHbl
 - 细分尺寸：控制屏幕空间触发更细 LOD 的阈值；数值越小画质越高，构建和渲染开销也越高。
 - 世界曲率：四个版本均可在 GPU 顶点阶段弯曲原版距离外的 LOD；0 为关闭。
 - 远景信标：联动版以缓存列生成光柱；靠近时确认原版光柱已就绪后再交接，极远距离使用平缓且无硬上限的宽度曲线，并在 Iris 阴影阶段提交轻量阴影模型。
-- PowerGrid 远景电线：联动版会保存玩家见过的悬垂电线，在实体跟踪范围外按原端点和线长重建简化悬链线；已视为完全兼容，可单独开关并限制距离。
+- PowerGrid 远景电线：联动版覆盖 PowerGrid 注册的悬垂线、方块折线、软线和灯串软线。悬垂线按端点与线长重建悬链线，方块线保存真实折线路径；均可单独开关并限制距离。
+- LittleTiles 远景材质：静态 1/8 格网格按不透明与半透明通道分离，保留小方块颜色 Alpha、方块发光强度和逐朝向纹理坐标；光影补丁可继续用同一图集坐标读取法线/高光材质。
 - FramedBlocks：联动版在区段摄取时把方块实体的主/副伪装、强化状态、可折叠偏移及其他模型数据登记为持久化变体；LOD 模型烘焙时恢复完整 `ModelData`，并使用伪装方块的染色来源。
 - Simulated 远景激光：联动版捕获激光指示器的动态方向、长度、颜色与红石强度，在原版方块实体距离外以专用半透明阶段继续渲染；可单独开关并限制距离。
 - 进服消息：每次进入服务器或单人世界显示版本提示，默认开启，可在 Sodium/Embeddium 的 Neo Voxy 配置中关闭。

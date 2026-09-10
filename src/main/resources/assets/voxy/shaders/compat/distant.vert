@@ -10,6 +10,7 @@ layout(location = 3) in float aShade;
 layout(location = 4) in uint aFace;
 //Tint (biome grass/foliage colour etc.), white for untinted geometry
 layout(location = 5) in vec4 aColor;
+layout(location = 6) in uint aCustomId;
 
 //Full transform: (pipeline MVP or vanilla proj*view) * model
 layout(location = 0) uniform mat4 uTransform;
@@ -28,11 +29,13 @@ layout(location = 1) out vec2 fLightUv;
 layout(location = 2) out float fShade;
 layout(location = 3) flat out uint fFace;
 layout(location = 4) out vec4 fColor;
+layout(location = 5) flat out uint fCustomId;
 
 void main() {
     gl_Position = uTransform * vec4(aPos, 1.0);
     fUv = aUv;
     fColor = aColor;
+    fCustomId = aCustomId;
     #ifdef UNIFORM_LIGHT
     fLightUv = uLightUv;
     uint face = aFace;

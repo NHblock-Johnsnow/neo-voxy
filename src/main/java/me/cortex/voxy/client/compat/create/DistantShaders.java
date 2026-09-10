@@ -25,6 +25,10 @@ public final class DistantShaders {
 
     private static Shader patchedVertexLight;
     private static Shader patchedUniformLight;
+    private static Shader translucentVertexLight;
+    private static Shader patchedTranslucentVertexLight;
+    private static AbstractRenderPipeline translucentPatchedOwner;
+    private static boolean translucentPatchFailed;
     private static AbstractRenderPipeline patchedOwner;
     private static boolean patchAvailable;
     private static boolean patchFailed;
@@ -83,6 +87,42 @@ public final class DistantShaders {
             Logger.error("Failed to compile shader-pack patched distant shader; falling back to plain (visuals degraded under shaders)", e);
             return uniformLightVariant ? uniformLight() : vertexLight();
         }
+    }
+
+    public static Shader forTranslucentPipeline(AbstractRenderPipeline pipeline) {
+        if (translucentPatchedOwner != pipeline) {
+            if (patchedTranslucentVertexLight != null) patchedTranslucentVertexLight.free();
+            patchedTranslucentVertexLight = null;
+            translucentPatchedOwner = pipeline;
+            translucentPatchFailed = false;
+        }
+        if (!translucentPatchFailed) {
+            try {
+                if (patchedTranslucentVertexLight == null) {
+                    String source = ShaderLoader.parse("voxy:compat/distant.frag");
+                    String fragment = pipeline.patchTranslucentShader(null, source);
+                    if (fragment == null) fragment = pipeline.patchOpaqueShader(null, source);
+                    if (fragment != null) {
+                        patchedTranslucentVertexLight = Shader.make()
+                                .define("PATCHED_SHADER").define("TRANSLUCENT")
+                                .add(ShaderType.VERTEX, "voxy:compat/distant.vert")
+                                .addSource(ShaderType.FRAGMENT, fragment)
+                                .compile().name("distant_patched_translucent_vertex");
+                    }
+                }
+                if (patchedTranslucentVertexLight != null) return patchedTranslucentVertexLight;
+            } catch (Throwable e) {
+                translucentPatchFailed = true;
+                Logger.error("Failed to compile shader-pack patched translucent distant shader", e);
+            }
+        }
+        if (translucentVertexLight == null) {
+            translucentVertexLight = Shader.make().define("TRANSLUCENT")
+                    .add(ShaderType.VERTEX, "voxy:compat/distant.vert")
+                    .add(ShaderType.FRAGMENT, "voxy:compat/distant.frag")
+                    .compile().name("distant_translucent_vertex_light");
+        }
+        return translucentVertexLight;
     }
 
     private static Shader compilePatched(AbstractRenderPipeline pipeline, boolean uniformLightVariant) {
