@@ -10,7 +10,7 @@ Neo Voxy is maintained by **JohnSnow**. It extends [NHblock714/voxy](https://git
 > **Build artifacts**: Build artifacts are intentionally removed. Fork this repository to download
 > the automatically built artifacts from GitHub Actions, or build locally by following the tutorial.
 >
-> **Server data sharing**: Neo Voxy is fully compatible with **Voxy Server Side**. Deploying it on
+> **Server data sharing**: Neo Voxy is fully compatible with **[voxy-server-side](https://www.curseforge.com/minecraft/mc-mods/voxy-server-side-forge-neoforge)**. Deploying it on
 > the server is recommended for sharing LOD data.
 >
 > **Dependencies and compatibility layers**: Neo Voxy only requires **Sodium** on NeoForge or
